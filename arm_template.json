@@ -1,0 +1,772 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "type": "string",
+            "metadata": "Data Factory Name",
+            "defaultValue": "TesADF-Dev"
+        },
+        "PowerBIDemo_connectionString": {
+            "type": "secureString",
+            "metadata": "Secure string for 'connectionString' of 'PowerBIDemo'"
+        },
+        "SFA_connectionString": {
+            "type": "secureString",
+            "metadata": "Secure string for 'connectionString' of 'SFA'"
+        },
+        "Sink_connectionString": {
+            "type": "secureString",
+            "metadata": "Secure string for 'connectionString' of 'Sink'"
+        },
+        "Source_connectionString": {
+            "type": "secureString",
+            "metadata": "Secure string for 'connectionString' of 'Source'"
+        },
+        "SourceData_connectionString": {
+            "type": "secureString",
+            "metadata": "Secure string for 'connectionString' of 'SourceData'"
+        }
+    },
+    "variables": {
+        "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('factoryName'), '/ChangeTrack')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "activities": [
+                    {
+                        "name": "FullCopy",
+                        "type": "Copy",
+                        "dependsOn": [],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "source": {
+                                "type": "AzureSqlSource"
+                            },
+                            "sink": {
+                                "type": "AzureSqlSink"
+                            },
+                            "enableStaging": false,
+                            "translator": {
+                                "type": "TabularTranslator",
+                                "mappings": [
+                                    {
+                                        "source": {
+                                            "name": "PersonID",
+                                            "type": "Int32"
+                                        },
+                                        "sink": {
+                                            "name": "PersonID",
+                                            "type": "Int32"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "Name",
+                                            "type": "String"
+                                        },
+                                        "sink": {
+                                            "name": "Name",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "Age",
+                                            "type": "Int32"
+                                        },
+                                        "sink": {
+                                            "name": "Age",
+                                            "type": "Int32"
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "inputs": [
+                            {
+                                "referenceName": "SourceDatasetA",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "referenceName": "AzureSqlTable1",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ]
+                    }
+                ],
+                "annotations": []
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/datasets/SourceDatasetA')]",
+                "[concat(variables('factoryId'), '/datasets/AzureSqlTable1')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/IncrementalCopy')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "activities": [
+                    {
+                        "name": "LookupLastChangeTrackingVersionActivity",
+                        "type": "Lookup",
+                        "dependsOn": [],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "source": {
+                                "type": "AzureSqlSource"
+                            },
+                            "dataset": {
+                                "referenceName": "ChangeTracking",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        }
+                    },
+                    {
+                        "name": "LookupCurrentChangeTrackingVersionActivity",
+                        "type": "Lookup",
+                        "dependsOn": [],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "source": {
+                                "type": "AzureSqlSource",
+                                "sqlReaderQuery": "SELECT CHANGE_TRACKING_CURRENT_VERSION() as CurrentChangeTrackingVersion"
+                            },
+                            "dataset": {
+                                "referenceName": "SourceDatasetA",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        }
+                    },
+                    {
+                        "name": "IncrementalCopyActivity",
+                        "type": "Copy",
+                        "dependsOn": [
+                            {
+                                "activity": "LookupLastChangeTrackingVersionActivity",
+                                "dependencyConditions": [
+                                    "Succeeded"
+                                ]
+                            },
+                            {
+                                "activity": "LookupCurrentChangeTrackingVersionActivity",
+                                "dependencyConditions": [
+                                    "Succeeded"
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "source": {
+                                "type": "AzureSqlSource",
+                                "sqlReaderQuery": {
+                                    "value": "select data_source_table.PersonID,data_source_table.Name,data_source_table.Age, CT.SYS_CHANGE_VERSION, SYS_CHANGE_OPERATION from data_source_table RIGHT OUTER JOIN CHANGETABLE(CHANGES data_source_table, @{activity('LookupLastChangeTrackingVersionActivity').output.firstRow.SYS_CHANGE_VERSION}) as CT on data_source_table.PersonID = CT.PersonID where CT.SYS_CHANGE_VERSION <= @{activity('LookupCurrentChangeTrackingVersionActivity').output.firstRow.CurrentChangeTrackingVersion}",
+                                    "type": "Expression"
+                                }
+                            },
+                            "sink": {
+                                "type": "AzureSqlSink"
+                            },
+                            "enableStaging": false,
+                            "translator": {
+                                "type": "TabularTranslator",
+                                "mappings": [
+                                    {
+                                        "source": {
+                                            "name": "PersonID",
+                                            "type": "int"
+                                        },
+                                        "sink": {
+                                            "name": "PersonID",
+                                            "type": "Int32"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "Name",
+                                            "type": "varchar"
+                                        },
+                                        "sink": {
+                                            "name": "Name",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "Age",
+                                            "type": "int"
+                                        },
+                                        "sink": {
+                                            "name": "Age",
+                                            "type": "Int32"
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "inputs": [
+                            {
+                                "referenceName": "SourceDatasetA",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "referenceName": "AzureSqlTable1",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ]
+                    },
+                    {
+                        "name": "StoredProceduretoUpdateChangeTrackingActivity",
+                        "type": "SqlServerStoredProcedure",
+                        "dependsOn": [
+                            {
+                                "activity": "IncrementalCopyActivity",
+                                "dependencyConditions": [
+                                    "Succeeded"
+                                ]
+                            }
+                        ],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "storedProcedureName": "[[dbo].[Update_ChangeTracking_Version]",
+                            "storedProcedureParameters": {
+                                "CurrentTrackingVersion": {
+                                    "value": {
+                                        "value": "@{activity('LookupCurrentChangeTrackingVersionActivity').output.firstRow.CurrentChangeTrackingVersion}",
+                                        "type": "Expression"
+                                    },
+                                    "type": "Int64"
+                                },
+                                "TableName": {
+                                    "value": {
+                                        "value": "@{activity('LookupLastChangeTrackingVersionActivity').output.firstRow.TableName}",
+                                        "type": "Expression"
+                                    },
+                                    "type": "String"
+                                }
+                            }
+                        },
+                        "linkedServiceName": {
+                            "referenceName": "SourceData",
+                            "type": "LinkedServiceReference"
+                        }
+                    }
+                ],
+                "annotations": []
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/datasets/ChangeTracking')]",
+                "[concat(variables('factoryId'), '/datasets/SourceDatasetA')]",
+                "[concat(variables('factoryId'), '/datasets/AzureSqlTable1')]",
+                "[concat(variables('factoryId'), '/linkedServices/SourceData')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/pipeline1')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "activities": [
+                    {
+                        "name": "CopyPorduct",
+                        "description": "Take Input from one database and store it in another database.",
+                        "type": "Copy",
+                        "dependsOn": [],
+                        "policy": {
+                            "timeout": "7.00:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureOutput": false,
+                            "secureInput": false
+                        },
+                        "userProperties": [],
+                        "typeProperties": {
+                            "source": {
+                                "type": "SqlServerSource"
+                            },
+                            "sink": {
+                                "type": "SqlServerSink"
+                            },
+                            "enableStaging": false,
+                            "translator": {
+                                "type": "TabularTranslator",
+                                "mappings": [
+                                    {
+                                        "source": {
+                                            "name": "business_unit",
+                                            "type": "String"
+                                        },
+                                        "sink": {
+                                            "name": "business_unit",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "product_id",
+                                            "type": "String"
+                                        },
+                                        "sink": {
+                                            "name": "product_id",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "group_product_id",
+                                            "type": "String"
+                                        },
+                                        "sink": {
+                                            "name": "group_product_id",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "product_name",
+                                            "type": "String"
+                                        },
+                                        "sink": {
+                                            "name": "product_name",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "product_name_english",
+                                            "type": "String"
+                                        },
+                                        "sink": {
+                                            "name": "product_name_english",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "product_category",
+                                            "type": "String"
+                                        },
+                                        "sink": {
+                                            "name": "product_category",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "unit_of_measure",
+                                            "type": "String"
+                                        },
+                                        "sink": {
+                                            "name": "unit_of_measure",
+                                            "type": "String"
+                                        }
+                                    },
+                                    {
+                                        "source": {
+                                            "name": "uom_conversion",
+                                            "type": "Double"
+                                        },
+                                        "sink": {
+                                            "name": "uom_conversion",
+                                            "type": "Double"
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "inputs": [
+                            {
+                                "referenceName": "Source",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "referenceName": "Sink",
+                                "type": "DatasetReference",
+                                "parameters": {}
+                            }
+                        ]
+                    }
+                ],
+                "annotations": []
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/datasets/Source')]",
+                "[concat(variables('factoryId'), '/datasets/Sink')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/AzureSqlTable1')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "SourceData",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "AzureSqlTable",
+                "schema": [
+                    {
+                        "name": "PersonID",
+                        "type": "int",
+                        "precision": 10
+                    },
+                    {
+                        "name": "Name",
+                        "type": "varchar"
+                    },
+                    {
+                        "name": "Age",
+                        "type": "int",
+                        "precision": 10
+                    }
+                ],
+                "typeProperties": {
+                    "tableName": "[[dbo].[data_sink_table]"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/SourceData')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/ChangeTracking')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "SourceData",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "AzureSqlTable",
+                "schema": [
+                    {
+                        "name": "TableName",
+                        "type": "varchar"
+                    },
+                    {
+                        "name": "SYS_CHANGE_VERSION",
+                        "type": "bigint",
+                        "precision": 19
+                    }
+                ],
+                "typeProperties": {
+                    "tableName": "[[dbo].[table_store_ChangeTracking_version]"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/SourceData')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/SFA')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "SFA",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "SqlServerTable",
+                "schema": [],
+                "typeProperties": {
+                    "tableName": "[[dbo].[testTbl]"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/SFA')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/Sink')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "Sink",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "SqlServerTable",
+                "schema": [
+                    {
+                        "name": "business_unit",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "product_id",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "group_product_id",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "product_name",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "product_name_english",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "product_category",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "unit_of_measure",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "uom_conversion",
+                        "type": "float",
+                        "precision": 15
+                    }
+                ],
+                "typeProperties": {
+                    "tableName": "[[dbo].[Ref_product_list]"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/Sink')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/Source')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "Source",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "SqlServerTable",
+                "schema": [
+                    {
+                        "name": "business_unit",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "product_id",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "group_product_id",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "product_name",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "product_name_english",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "product_category",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "unit_of_measure",
+                        "type": "nvarchar"
+                    },
+                    {
+                        "name": "uom_conversion",
+                        "type": "float",
+                        "precision": 15
+                    }
+                ],
+                "typeProperties": {
+                    "tableName": "[[dbo].[ds_product_list]"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/Source')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/SourceDataset')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "PowerBIDemo",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "SqlServerTable",
+                "schema": [
+                    {
+                        "name": "name",
+                        "type": "nvarchar"
+                    }
+                ],
+                "typeProperties": {
+                    "tableName": "[[dbo].[testTbl]"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/PowerBIDemo')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/SourceDatasetA')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "SourceData",
+                    "type": "LinkedServiceReference"
+                },
+                "annotations": [],
+                "type": "AzureSqlTable",
+                "schema": [
+                    {
+                        "name": "PersonID",
+                        "type": "int",
+                        "precision": 10
+                    },
+                    {
+                        "name": "Name",
+                        "type": "varchar"
+                    },
+                    {
+                        "name": "Age",
+                        "type": "int",
+                        "precision": 10
+                    }
+                ],
+                "typeProperties": {
+                    "tableName": "[[dbo].[data_source_table]"
+                }
+            },
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/SourceData')]"
+            ]
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/PowerBIDemo')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "description": "Source DataSource",
+                "annotations": [],
+                "type": "SqlServer",
+                "typeProperties": {
+                    "connectionString": "[parameters('PowerBIDemo_connectionString')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/SFA')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "description": "Sink Datasource",
+                "annotations": [],
+                "type": "SqlServer",
+                "typeProperties": {
+                    "connectionString": "[parameters('SFA_connectionString')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/Sink')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "annotations": [],
+                "type": "SqlServer",
+                "typeProperties": {
+                    "connectionString": "[parameters('Sink_connectionString')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/Source')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "description": "Source",
+                "annotations": [],
+                "type": "SqlServer",
+                "typeProperties": {
+                    "connectionString": "[parameters('Source_connectionString')]"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/SourceData')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "annotations": [],
+                "type": "AzureSqlDatabase",
+                "typeProperties": {
+                    "connectionString": "[parameters('SourceData_connectionString')]"
+                }
+            },
+            "dependsOn": []
+        }
+    ]
+}
