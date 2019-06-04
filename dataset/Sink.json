@@ -1,0 +1,49 @@
+{
+	"name": "Sink",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Sink",
+			"type": "LinkedServiceReference"
+		},
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "business_unit",
+				"type": "nvarchar"
+			},
+			{
+				"name": "product_id",
+				"type": "nvarchar"
+			},
+			{
+				"name": "group_product_id",
+				"type": "nvarchar"
+			},
+			{
+				"name": "product_name",
+				"type": "nvarchar"
+			},
+			{
+				"name": "product_name_english",
+				"type": "nvarchar"
+			},
+			{
+				"name": "product_category",
+				"type": "nvarchar"
+			},
+			{
+				"name": "unit_of_measure",
+				"type": "nvarchar"
+			},
+			{
+				"name": "uom_conversion",
+				"type": "float",
+				"precision": 15
+			}
+		],
+		"typeProperties": {
+			"tableName": "[dbo].[Ref_product_list]"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

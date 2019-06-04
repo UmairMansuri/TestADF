@@ -1,0 +1,15 @@
+{
+	"name": "SFA",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "SFA",
+			"type": "LinkedServiceReference"
+		},
+		"type": "SqlServerTable",
+		"schema": [],
+		"typeProperties": {
+			"tableName": "[dbo].[testTbl]"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,25 @@
+{
+	"name": "ChangeTracking",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "SourceData",
+			"type": "LinkedServiceReference"
+		},
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "TableName",
+				"type": "varchar"
+			},
+			{
+				"name": "SYS_CHANGE_VERSION",
+				"type": "bigint",
+				"precision": 19
+			}
+		],
+		"typeProperties": {
+			"tableName": "[dbo].[table_store_ChangeTracking_version]"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
