@@ -3,7 +3,7 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
         "factoryName": {
-            "value": "dev-adf-spec"
+            "value": "uat-adf-spec"
         },
         "PowerBIDemo_connectionString": {
             "value": "integrated security=False;data source=powerbispec.database.windows.net;initial catalog=powerbidemo;user id=poweradmin"
