@@ -1,0 +1,15 @@
+{
+	"name": "Destination_zoom",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "Destination_zoom",
+			"type": "LinkedServiceReference"
+		},
+		"type": "SqlServerTable",
+		"schema": [],
+		"typeProperties": {
+			"tableName": "[dbo].[emp_vivekD]"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

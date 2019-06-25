@@ -1,8 +1,7 @@
 {
-	"name": "SFA",
+	"name": "SqlServer2",
 	"type": "Microsoft.DataFactory/factories/linkedservices",
 	"properties": {
-		"description": "Sink Datasource",
 		"type": "SqlServer",
 		"typeProperties": {
 			"connectionString": "integrated security=False;data source=powerbispec.database.windows.net;initial catalog=sfa;user id=poweradmin"
